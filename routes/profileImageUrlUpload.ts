@@ -27,7 +27,7 @@ export function profileImageUrlUpload () {
             throw new Error('invalid image URL')
           }
           const safeUrl = parsedUrl.toString()
-          const response = await fetch(safeUrl)
+          const response = await fetch(safeUrl, { redirect: 'error' })
           if (!response.ok || !response.body) {
             throw new Error('url returned a non-OK status code or an empty body')
           }
