@@ -14,6 +14,7 @@ import * as utils from '../lib/utils'
 import logger from '../lib/logger'
 
 export function profileImageUrlUpload () {
+  const allowedImageHosts = new Set(['images.owasp-juice.shop', 'www.gravatar.com', 'i.imgur.com'])
   return async (req: Request, res: Response, next: NextFunction) => {
     if (req.body.imageUrl !== undefined) {
       const url = req.body.imageUrl
@@ -21,11 +22,16 @@ export function profileImageUrlUpload () {
       const loggedInUser = security.authenticatedUsers.get(req.cookies.token)
       if (loggedInUser) {
         try {
-          const response = await fetch(url)
+          const parsedUrl = new URL(url)
+          if (!['http:', 'https:'].includes(parsedUrl.protocol) || !allowedImageHosts.has(parsedUrl.hostname)) {
+            throw new Error('invalid image URL')
+          }
+          const safeUrl = parsedUrl.toString()
+          const response = await fetch(safeUrl)
           if (!response.ok || !response.body) {
             throw new Error('url returned a non-OK status code or an empty body')
           }
-          const ext = ['jpg', 'jpeg', 'png', 'svg', 'gif'].includes(url.split('.').slice(-1)[0].toLowerCase()) ? url.split('.').slice(-1)[0].toLowerCase() : 'jpg'
+          const ext = ['jpg', 'jpeg', 'png', 'svg', 'gif'].includes(parsedUrl.pathname.split('.').slice(-1)[0].toLowerCase()) ? parsedUrl.pathname.split('.').slice(-1)[0].toLowerCase() : 'jpg'
           const fileStream = fs.createWriteStream(`frontend/dist/frontend/assets/public/images/uploads/${loggedInUser.data.id}.${ext}`, { flags: 'w' })
           await finished(Readable.fromWeb(response.body as any).pipe(fileStream))
           const user = await UserModel.findByPk(loggedInUser.data.id)
